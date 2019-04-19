@@ -1,4 +1,8 @@
-# Surfingkeys - Expand your browser with javascript and keyboard.
+# Fork Surfingkeys - "lite-no-tracker" - Expand your browser with javascript and keyboard.
+
+- Google analytcs tracker removed.
+- Post uninstall url removed
+
 
 [![Node CI](https://github.com/brookhong/Surfingkeys/workflows/Node%20CI/badge.svg?branch=master)](https://github.com/brookhong/Surfingkeys/actions?query=workflow%3A%22Node+CI%22+branch%3Amaster)
 
