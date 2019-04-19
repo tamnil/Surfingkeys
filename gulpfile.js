@@ -39,7 +39,6 @@ gulp.task('clean', function () {
 gulp.task('copy-html-files', function() {
     if (buildTarget === "Firefox") {
         return gulp.src(['pages/*.html', '!pages/pdf_viewer.html'], {base: "."})
-            .pipe(replace(/\s*<script src="ga.js"><\/script>\n\s*<script async src='https:\/\/www.google-analytics.com\/analytics.js'><\/script>/, ''))
             .pipe(gulp.dest(`dist/${buildTarget}-extension`));
     } else {
         return gulp.src(['pages/*.html'], {base: "."})
