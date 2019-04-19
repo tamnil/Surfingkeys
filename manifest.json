@@ -82,6 +82,5 @@
         "pages/pdf_viewer.html",
         "pages/shadow.css",
         "pages/default.css"
-    ],
-    "content_security_policy": "script-src 'self' https://www.google-analytics.com; object-src 'self'"
+    ]
 }
