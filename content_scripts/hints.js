@@ -226,30 +226,21 @@ function createHints() {
         document.removeEventListener("surfingkeys:scrollDone", resetHints);
     };
 
-    self.genLabels = function(M) {
-        if (M <= self.characters.length) {
-            return self.characters.slice(0, M).toUpperCase().split('');
-        }
-        var codes = [];
-        var genCodeWord = function(N, length) {
-            for (var i = 0, word = ''; i < length; i++) {
-                word += self.characters.charAt(N % self.characters.length).toUpperCase();
-                N = ~~(N / self.characters.length);
+    self.genLabels = function(total) {
+        var ch, hint, hints, i, len, offset;
+        hints = [""];
+        offset = 0;
+        while (hints.length - offset < total || hints.length === 1) {
+            hint = hints[offset++];
+            for (i = 0, len = self.characters.length; i < len; i++) {
+                ch = self.characters[i];
+                hints.push(ch + hint);
             }
-            codes.push(word.split('').reverse().join(''));
-        };
-
-        var b = Math.ceil(Math.log(M) / Math.log(self.characters.length));
-        var cutoff = Math.pow(self.characters.length, b) - M;
-        var cutoffR = ~~(cutoff / (self.characters.length - 1));
-
-        for (var i = 0; i < cutoffR; i++) {
-            genCodeWord(i, b - 1);
         }
-        for (var j = cutoffR; j < M; j++) {
-            genCodeWord(j + cutoff, b);
-        }
-        return codes;
+        hints = hints.slice(offset, offset + total);
+        return hints.map(function(str) {
+            return str.reverse().toUpperCase();
+        });
     };
 
     self.coordinate = function() {

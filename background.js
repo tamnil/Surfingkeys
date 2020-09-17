@@ -482,6 +482,10 @@ var ChromeService = (function() {
         }
     }
 
+    function getSenderUrl(sender) {
+        // use the tab's url if sender is a frame with blank url.
+        return (sender.frameId !== 0 && sender.url === "about:blank") ? sender.tab.url : sender.url;
+    }
     function _getDisabled(set, url, regex) {
         if (set.blacklist['.*']) {
             return true;
@@ -500,8 +504,9 @@ var ChromeService = (function() {
     self.toggleBlacklist = function(message, sender, sendResponse) {
         loadSettings('blacklist', function(data) {
             var origin = ".*";
-            if (chrome.extension.getURL("").indexOf(sender.origin) !== 0) {
-                origin = sender.origin;
+            var senderOrigin = sender.origin || new URL(getSenderUrl(sender)).origin;
+            if (chrome.extension.getURL("").indexOf(senderOrigin) !== 0) {
+                origin = senderOrigin;
             }
             if (data.blacklist.hasOwnProperty(origin)) {
                 delete data.blacklist[origin];
@@ -510,7 +515,7 @@ var ChromeService = (function() {
             }
             _updateAndPostSettings({blacklist: data.blacklist}, function() {
                 sendResponse({
-                    disabled: _getDisabled(data, sender.tab ? new URL(sender.url) : null, message.blacklistPattern),
+                    disabled: _getDisabled(data, sender.tab ? new URL(getSenderUrl(sender)) : null, message.blacklistPattern),
                     blacklist: data.blacklist,
                     url: origin
                 });
@@ -536,7 +541,7 @@ var ChromeService = (function() {
             if (sender.tab) {
                 _response(message, sendResponse, {
                     noPdfViewer: data.noPdfViewer,
-                    disabled: _getDisabled(data, new URL(sender.url), message.blacklistPattern)
+                    disabled: _getDisabled(data, new URL(getSenderUrl(sender)), message.blacklistPattern)
                 });
             }
         });
@@ -782,19 +787,25 @@ var ChromeService = (function() {
         return base;
     }
     function _nextTab(tab, step) {
-        chrome.tabs.query({
-            windowId: tab.windowId
-        }, function(tabs) {
-            if (tab.index == 0 && step == -1) {
-                step = tabs.length -1 ;
-            } else if (tab.index == tabs.length -1 && step == 1 ) {
-                step = 1 - tabs.length ;
-            }
-            var to = _fixTo(tab.index + step, tabs.length - 1);
-            chrome.tabs.update(tabs[to].id, {
-                active: true
+        if (tab) {
+            chrome.tabs.query({
+                windowId: tab.windowId
+            }, function(tabs) {
+                if (tab.index == 0 && step == -1) {
+                    step = tabs.length -1 ;
+                } else if (tab.index == tabs.length -1 && step == 1 ) {
+                    step = 1 - tabs.length ;
+                }
+                var to = _fixTo(tab.index + step, tabs.length - 1);
+                chrome.tabs.update(tabs[to].id, {
+                    active: true
+                });
             });
-        });
+        } else {
+            getActiveTab(function(t) {
+                _nextTab(t, step);
+            });
+        }
     }
     self.nextTab = function(message, sender, sendResponse) {
         _nextTab(sender.tab, message.repeats);
@@ -803,16 +814,22 @@ var ChromeService = (function() {
         _nextTab(sender.tab, -message.repeats);
     };
     function _roundRepeatTabs(tab, repeats, operation) {
-        chrome.tabs.query({
-            windowId: tab.windowId
-        }, function(tabs) {
-            var tabIds = tabs.map(function(e) {
-                return e.id;
+        if (tab) {
+            chrome.tabs.query({
+                windowId: tab.windowId
+            }, function(tabs) {
+                var tabIds = tabs.map(function(e) {
+                    return e.id;
+                });
+                repeats = _fixTo(repeats, tabs.length);
+                var base = _roundBase(tab.index, repeats, tabs.length);
+                operation(tabIds.slice(base, base + repeats));
             });
-            repeats = _fixTo(repeats, tabs.length);
-            var base = _roundBase(tab.index, repeats, tabs.length);
-            operation(tabIds.slice(base, base + repeats));
-        });
+        } else {
+            getActiveTab(function(t) {
+                _roundRepeatTabs(t, repeats, operation);
+            });
+        }
     }
     self.reloadTab = function(message, sender, sendResponse) {
         _roundRepeatTabs(sender.tab, message.repeats, function(tabIds) {
@@ -1008,7 +1025,8 @@ var ChromeService = (function() {
             });
         } else {
             if (message.tab.tabbed) {
-                if (sender.frameId !== 0 && chrome.extension.getURL("pages/frontend.html") === sender.url) {
+                if (sender.frameId !== 0 && chrome.extension.getURL("pages/frontend.html") === sender.url
+                    || !sender.tab) {
                     // if current call was made from Omnibar, the sender.tab may be stale,
                     // as sender was bound when port was created.
                     getActiveTab(function(tab) {
