@@ -20,6 +20,8 @@ Surfingkeys works for Firefox(above 57) since 0.9.15, with below features as exc
 * Proxy settings
 * Markdown preview
 
+Surfingkeys is doing its best to make full use of keyboard for web browsing, but there are some limitations from Google Chrome itself, please see [Brook Build of Chromium](https://brookhong.github.io/2021/04/18/brook-build-of-chromium.html) for a more thorough experience.
+
 ## Installation
 
 * [Surfingkeys - Chrome Web Store](https://chrome.google.com/webstore/detail/surfingkeys/gfbliohnnapiefjpjlpjnehglfpaknnc)
@@ -36,6 +38,7 @@ Surfingkeys works for Firefox(above 57) since 0.9.15, with below features as exc
 * [Search selected with](#search-selected-with)
 * [Vim-like marks](#vim-like-marks)
 * [Switch tabs](#switch-tabs)
+* [Windows management](#windows-management)
 * [Commands](#commands)
 * [Smooth scroll](#smooth-scroll)
 * [Session management](#session-management)
@@ -272,6 +275,14 @@ The tabs are displayed in MRU order by default, either in omnibar or overlay. If
 
     settings.tabsMRUOrder = false;
 
+## Windows management
+
+`W` will bring up a popup of Windows, you can select one of them and press `Enter` to move current tab to the selected window. If there is only one window, `W` will move current tab to a new window directly.
+
+`;gt` will open Omnibar with all tabs not from current window, you could input some text to filter the tabs, then press `Enter` to gather the filtered tabs into current window. `;gw` will gather all tabs into current window.
+
+So to group your tabs into windows, you can use `W` to move one tab to a specified window or use `;gt` to gather filtered tabs into current window.
+
 ## Commands
 
 `:` to open omnibar for commands, then you can execute any pre-defined there. The result will be displayed below the omnibar.
@@ -341,13 +352,13 @@ By default, `Alt-s` will toggle Surfingkeys for current site. When Surfingkeys i
 
 When Surfingkeys is turned off on some site by `Alt-s`, the status will be persisted in settings, for example,
 
-    "blacklist": {
+    "blocklist": {
         "https://github.com": 1
     },
 
-`Alt-s` once more will remove it from settings.blacklist. The data settings are not always presented in snippets, you could use `yj` to dump all settings into clipboard, then paste it in your text editor to check out.
+`Alt-s` once more will remove it from settings.blocklist. The data settings are not always presented in snippets, you could use `yj` to dump all settings into clipboard, then paste it in your text editor to check out.
 
-Another way to disable Surfingkeys is to use `settings.blacklistPattern`, please refer to [regex for disabling](https://github.com/brookhong/Surfingkeys/issues/63).
+Another way to disable Surfingkeys is to use `settings.blocklistPattern`, please refer to [regex for disabling](https://github.com/brookhong/Surfingkeys/issues/63).
 
 ## Proxy settings
 
@@ -406,6 +417,8 @@ You could change to Emacs keybindings for the editor by adding below settings:
     settings.aceKeybindings = "emacs";
 
 With Emacs keybindings, use `C-x C-s` to save your input.
+
+Surfingkeys is also integrated with [glacambre/firenvim](https://github.com/glacambre/firenvim), so that user can use neovim to edit input. Basically when you try to activate vim editor by `Ctrl-i`, Surfingkeys will try to activate neovim through `firenvim` first, and if it fails, Surfingkeys will then call the built-in ACE vim editor for you. If you would not like such behavior, just set `settings.useNeovim` false.
 
 ### Edit any input on html page
 
@@ -653,7 +666,6 @@ For example,
 | settings.omnibarSuggestionTimeout | 200 | Timeout duration before Omnibar suggestion URLs are queried, in milliseconds. Helps prevent unnecessary HTTP requests and API rate-limiting. |
 | settings.focusFirstCandidate | false | Whether to focus first candidate of matched result in Omnibar. |
 | settings.tabsThreshold | 9 | When total of opened tabs exceeds the number, Omnibar will be used for choosing tabs. |
-| settings.hintsThreshold | 10000 | When total of regular clickable elements (a, button, select, input, textarea) exceeds this number, Surfingkeys will not show hints for other elements that are clickable. |
 | settings.clickableSelector | "" | Extra CSS selector to pick elements for hints mode, such as "\*.jfk-button, \*.goog-flat-menu-button". |
 | settings.clickablePat | /(https?&#124;thunder&#124;magnet):\/\/\S+/ig | A regex to detect clickable links from text, you could use `O` to open them. |
 | settings.editableSelector | div.CodeMirror-scroll,div.ace_content | CSS selector for additional editable elements. |
@@ -667,7 +679,7 @@ For example,
 | settings.hintExplicit | false | Whether to wait for explicit input when there is only a single hint available |
 | settings.hintShiftNonActive | false | Whether new tab is active after entering hint while holding shift |
 | settings.defaultSearchEngine | "g" | The default search engine used in Omnibar. |
-| settings.blacklistPattern | undefined | A regex to match the sites that will have Surfingkeys disabled. |
+| settings.blocklistPattern | undefined | A regex to match the sites that will have Surfingkeys disabled. |
 | settings.focusAfterClosed | "right" | Which tab will be focused after the current tab is closed. ["left", "right", "last"] |
 | settings.repeatThreshold | 99 | The maximum of actions to be repeated. |
 | settings.tabsMRUOrder | true | Whether to list opened tabs in order of most recently used beneath Omnibar. |
@@ -689,6 +701,7 @@ For example,
 | settings.caretViewport | null | Set it in format `[top, left, bottom, right]` to limit hints generation on `v` for entering visual mode, such as `[window.innerHeight / 2 - 10, 0, window.innerHeight / 2 + 10, window.innerWidth]` will make Surfingkeys generate Hints only for text that display on vertically middle of window. |
 | settings.mouseSelectToQuery | [] | All hosts that have enable feature -- mouse selection to query. |
 | settings.autoSpeakOnInlineQuery | false | Whether to automatically speak the query string with TTS on inline query. |
+| settings.useNeovim | true | Whether to use neovim(through [glacambre/firenvim](https://github.com/glacambre/firenvim)) as editor rather than the built-in ACE vim editor. |
 
 ### Example of settings.theme, below is to set font size of status bar
 

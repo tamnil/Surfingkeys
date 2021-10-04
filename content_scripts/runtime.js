@@ -4,7 +4,7 @@ var runtime = (function() {
             autoSpeakOnInlineQuery: false,
             lastKeys: "",
             // local part from settings
-            blacklistPattern: undefined,
+            blocklistPattern: undefined,
             smartCase: true,
             caseSensitive: false,
             clickablePat: /(https?:\/\/|thunder:\/\/|magnet:)\S+/ig,
@@ -25,7 +25,7 @@ var runtime = (function() {
             language: undefined,
             lastQuery: "",
             modeAfterYank: "",
-            nextLinkRegex: /(\b(next)\b)|下页|下一页|后页|>>|»/i,
+            nextLinkRegex: /(\b(next)\b)|下页|下一页|后页|下頁|下一頁|後頁|>>|»/i,
             digitForRepeat: true,
             omnibarMaxResults: 10,
             omnibarPosition: "middle",
@@ -33,7 +33,7 @@ var runtime = (function() {
             omnibarSuggestionTimeout: 200,
             omnibarTabsQuery: {},
             pageUrlRegex: [],
-            prevLinkRegex: /(\b(prev|previous)\b)|上页|上一页|前页|<<|«/i,
+            prevLinkRegex: /(\b(prev|previous)\b)|上页|上一页|前页|上頁|上一頁|前頁|<<|«/i,
             richHintsForKeystroke: 1000,
             scrollStepSize: 70,
             showModeStatus: false,
@@ -49,6 +49,7 @@ var runtime = (function() {
             aceKeybindings: "vim",
             caretViewport: null,
             mouseSelectToQuery: [],
+            useNeovim: false,
             useLocalMarkdownAPI: true
         },
     }, _handlers = {};

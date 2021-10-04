@@ -181,18 +181,29 @@ function createFront() {
     };
 
     function updateElementBehindEditor(data) {
+        // setEditorText and setValueWithEventDispatched are experimental APIs from Brook Build of Chromium
+        // https://brookhong.github.io/2021/04/18/brook-build-of-chromium.html
         if (elementBehindEditor.nodeName === "DIV") {
-            elementBehindEditor.innerText = data;
+            data = data.replace(/\n+$/, '');
+            if (typeof elementBehindEditor.setEditorText === "function") {
+                elementBehindEditor.setEditorText(data);
+            } else {
+                elementBehindEditor.innerText = data;
+            }
         } else {
-            elementBehindEditor.value = data;
+            if (typeof elementBehindEditor.setValueWithEventDispatched === "function") {
+                elementBehindEditor.setValueWithEventDispatched(data);
+            } else {
+                elementBehindEditor.value = data;
+                var evt = document.createEvent("HTMLEvents");
+                evt.initEvent("change", false, true);
+                elementBehindEditor.dispatchEvent(evt);
+            }
         }
-        var evt = document.createEvent("HTMLEvents");
-        evt.initEvent("change", false, true);
-        elementBehindEditor.dispatchEvent(evt);
     }
 
     var onEditorSaved, elementBehindEditor;
-    self.showEditor = function(element, onWrite, type) {
+    function showAceVimEditor(element, onWrite, type) {
         var content,
             type = type || element.localName,
             initial_line = 0;
@@ -223,6 +234,26 @@ function createFront() {
             initial_line: initial_line,
             content: content
         });
+    }
+    self.showEditor = function(element, onWrite, type) {
+        try {
+            if (runtime.conf.useNeovim) {
+                Normal.passFocus(true);
+                element.focus();
+                chrome.runtime.sendMessage("egpjdkipkomnmjhjmdamaniclmdlobbo", {command: 'nvimify'},
+                    function(response) {
+                        if (!response || response.status !== "succeeded") {
+                            element.blur();
+                            showAceVimEditor(element, onWrite, type);
+                        }
+                    }
+                );
+            } else {
+                showAceVimEditor(element, onWrite, type);
+            }
+        } catch(e) {
+            showAceVimEditor(element, onWrite, type);
+        }
     };
 
     self.chooseTab = function() {

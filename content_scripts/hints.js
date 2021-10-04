@@ -1,11 +1,50 @@
 function createHints() {
     var self = new Mode("Hints");
+    var hintsHost = document.createElement("div");
+    hintsHost.style.display = "block";
+    hintsHost.style.opacity = 1;
+    hintsHost.style.colorScheme = "auto";
+    hintsHost.attachShadow({ mode: 'open' });
+    var hintsStyle = createElementWithContent('style', `
+div {
+    position: absolute;
+    display: block;
+    font-size: 8pt;
+    font-weight: bold;
+    padding: 0px 2px 0px 2px;
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#FFF785), color-stop(100%,#FFC542));
+    color: #000;
+    border: solid 1px #C38A22;
+    border-radius: 3px;
+    box-shadow: 0px 3px 7px 0px rgba(0, 0, 0, 0.3);
+    width: auto;
+}
+div:empty {
+    display: none;
+}
+[mode=text] div {
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#aaa), color-stop(100%,#fff));
+}
+div.hint-scrollable {
+    background: rgba(170, 170, 255, 0.85);
+}
+[mode=text] div.begin {
+    color: #00f;
+}
+[mode=input] div {
+    background: rgba(255, 217, 0, 0.25);
+}
+[mode=input] div.activeInput {
+    background: rgba(0, 0, 255, 0.25);
+}`);
+    hintsHost.shadowRoot.appendChild(hintsStyle);
+    document.documentElement.appendChild(hintsHost);
 
     self.addEventListener('keydown', function(event) {
-        var hints = holder.querySelectorAll('#sk_hints>div');
+        var hints = holder.querySelectorAll('div');
         event.sk_stopPropagation = true;
 
-        var ai = document.querySelector('#sk_hints[mode=input]>div.activeInput');
+        var ai = holder.querySelector('[mode=input]>div.activeInput');
         if (ai !== null) {
             var elm = ai.link;
             if (Mode.isSpecialKeyOf("<Esc>", event.sk_keyName)) {
@@ -84,7 +123,7 @@ function createHints() {
         behaviours = {
             mouseEvents: ['mouseover', 'mousedown', 'mouseup', 'click']
         },
-        holder = createElementWithContent('div', '', {id: "sk_hints", style: "display: block; opacity: 1;"}),
+        holder = createElementWithContent('section', '', {style: "display: block; opacity: 1;"}),
         shiftKey = false;
     self.characters = 'asdfgqwertzxcvb';
     self.scrollKeys = '0jkhlG$';
@@ -130,7 +169,7 @@ function createHints() {
     }
 
     function refreshByTextFilter() {
-        var hints = holder.querySelectorAll('#sk_hints>div');
+        var hints = holder.querySelectorAll('div');
         hints = Array.from(hints);
         if (textFilter.length > 0) {
             hints = hints.filter(function(hint) {
@@ -153,7 +192,7 @@ function createHints() {
 
     function refresh() {
         var matches = [];
-        var hints = holder.querySelectorAll('#sk_hints>div:not(:empty)');
+        var hints = holder.querySelectorAll('div:not(:empty)');
         hints.forEach(function(hint) {
             var label = hint.label;
             if (prefix.length === 0) {
@@ -188,7 +227,7 @@ function createHints() {
     }
 
     function flip() {
-        var hints = holder.querySelectorAll('#sk_hints>div');
+        var hints = holder.querySelectorAll('div');
         if (hints[0].style.zIndex == hints[0].zIndex) {
             hints.forEach(function(hint, i) {
                 var z = parseInt(hint.style.zIndex);
@@ -214,6 +253,15 @@ function createHints() {
             self.statusLine += " - " + (new Date().getTime() - start) + "ms / " + found;
             Mode.showStatus();
         }
+    }
+
+    function getHref(elm) {
+        var href = elm.href;
+        while (!href && elm) {
+            elm = elm.parentElement;
+            href = elm.href;
+        }
+        return href;
     }
 
     self.onEnter = function() {
@@ -247,13 +295,15 @@ function createHints() {
         // a hack to get co-ordinate
         var link = createElementWithContent('div', 'A', {style: "top: 0; left: 0;"});
         holder.prepend(link);
-        document.documentElement.prepend(holder);
+        hintsHost.shadowRoot.appendChild(holder);
         var br = link.getBoundingClientRect();
-        setSanitizedContent(holder, "");
-        return {
+        var ret = {
             top: br.top + window.pageYOffset - document.documentElement.clientTop,
             left: br.left + window.pageXOffset - document.documentElement.clientLeft
         };
+        setSanitizedContent(holder, "");
+        holder.remove();
+        return ret;
     };
 
     function _initHolder(mode) {
@@ -266,7 +316,7 @@ function createHints() {
         _initHolder('click');
         var hintLabels = self.genLabels(elements.length);
         var bof = self.coordinate();
-        var style = createElementWithContent("style", "#sk_hints div.myHint{" + _styleForClick + "}");
+        var style = createElementWithContent("style", _styleForClick);
         holder.prepend(style);
         var links = elements.map(function(elm, i) {
             var r = getRealRect(elm),
@@ -284,7 +334,7 @@ function createHints() {
             } else if (left + 32 > window.pageXOffset + window.innerWidth) {
                 left = window.pageXOffset + window.innerWidth - 32;
             }
-            var link = createElementWithContent('div', hintLabels[i], {class: "myHint"});
+            var link = createElementWithContent('div', hintLabels[i]);
             if (elm.dataset.hint_scrollable) { link.classList.add('hint-scrollable'); }
             link.style.top = Math.max(r.top + window.pageYOffset - bof.top, 0) + "px";
             link.style.left = left + "px";
@@ -297,7 +347,7 @@ function createHints() {
         links.forEach(function(link) {
             holder.appendChild(link);
         });
-        var hints = holder.querySelectorAll('#sk_hints>div');
+        var hints = holder.querySelectorAll('div');
         var bcr = getRealRect(hints[0]);
         for (var i = 1; i < hints.length; i++) {
             var h = hints[i];
@@ -307,7 +357,7 @@ function createHints() {
             }
             bcr = getRealRect(h);
         }
-        document.documentElement.prepend(holder);
+        hintsHost.shadowRoot.appendChild(holder);
     }
 
     function createHintsForElements(elements, attrs) {
@@ -343,6 +393,9 @@ function createHints() {
         }, attrs || {});
         for (var attr in attrs) {
             behaviours[attr] = attrs[attr];
+        }
+        if (behaviours.multipleHits) {
+            behaviours.tabbed = true;
         }
         var elements;
         if (behaviours.tabbed) {
@@ -459,9 +512,9 @@ function createHints() {
                 holder.append(e);
             });
 
-            var style = createElementWithContent('style', `#sk_hints[mode='text'] div{${_styleForText}}`);
+            var style = createElementWithContent('style', _styleForText);
             holder.prepend(style);
-            document.documentElement.prepend(holder);
+            hintsHost.shadowRoot.appendChild(holder);
         }
 
         return elements.length;
@@ -481,7 +534,7 @@ function createHints() {
 
         var elements = getVisibleElements(function(e, v) {
             if (e.matches(cssSelector) && !e.disabled && !e.readOnly
-                && (e.type === "text" || e.type === "search" || e.type === "password")) {
+                && (e.type === "text" || e.type === "email" || e.type === "search" || e.type === "password")) {
                 v.push(e);
             }
         });
@@ -514,9 +567,9 @@ function createHints() {
                 mask.innerText = " ";
                 holder.append(mask);
             });
-            document.documentElement.prepend(holder);
+            hintsHost.shadowRoot.appendChild(holder);
             _lastCreateAttrs.activeInput = 0;
-            var ai = document.querySelector('#sk_hints[mode=input]>div');
+            var ai = holder.querySelector('[mode=input]>div');
             ai.classList.add("activeInput");
             Normal.passFocus(true);
             ai.link.focus();
@@ -595,7 +648,7 @@ function createHints() {
                         tabbed: tabbed,
                         active: active
                     },
-                    url: element.href
+                    url: getHref(element)
                 });
             } else {
                 self.mouseoutLastElement();
@@ -614,10 +667,14 @@ function createHints() {
 
     var _styleForText = "", _styleForClick = "";
     self.style = function(css, mode) {
+        if (!/^div\b/.test(css)) {
+            css = `div{${css}}`;
+        }
+
         if (mode === "text") {
-            _styleForText = css;
+            _styleForText = css.replace(/\bdiv\b/g, "[mode='text'] div");
         } else {
-            _styleForClick = css;
+            _styleForClick = css.replace(/\bdiv\b/g, "div");
         }
     };
 

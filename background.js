@@ -8,7 +8,12 @@ function request(url, onReady, headers, data, onException) {
             xhr.setRequestHeader(h, headers[h]);
         }
         xhr.onload = function() {
-            acc(xhr.responseText);
+            // status from file:/// is always 0
+            if (xhr.status === 200 || xhr.status === 0) {
+                acc(xhr.responseText);
+            } else {
+                rej(xhr.status);
+            }
         };
         xhr.onerror = rej.bind(null, xhr);
         xhr.send(data);
@@ -49,10 +54,24 @@ function getSubSettings(set, keys) {
 }
 
 function _save(storage, data, cb) {
-    if (data.localPath) {
-        delete data.snippets;
+    if (storage === chrome.storage.sync) {
+        // don't store snippets from localPath into sync storage, since sync storage has its quota.
+        if (data.localPath) {
+            delete data.snippets;
+        }
+        storage.set(data, cb);
+    } else {
+        if (data.localPath) {
+            delete data.snippets;
+            // try to fetch snippets from localPath and cache it in local storage.
+            request(data.localPath, function(resp) {
+                data.snippets = resp;
+                storage.set(data, cb);
+            });
+        } else {
+            storage.set(data, cb);
+        }
     }
-    storage.set(data, cb);
 }
 
 var Gist = (function() {
@@ -170,7 +189,7 @@ var Gist = (function() {
     return self;
 })();
 
-var ChromeService = (function() {
+const ChromeService = (function() {
     var self = {};
 
     var tabHistory = [],
@@ -184,7 +203,7 @@ var ChromeService = (function() {
         frameIndexes = {},
         tabURLs = {};
 
-    var newTabUrl = "chrome://newtab/";
+    var newTabUrl = _setNewTabUrl();
 
     var conf = {
         focusAfterClosed: "right",
@@ -231,7 +250,7 @@ var ChromeService = (function() {
 
     function loadSettings(keys, cb) {
         var tmpSet = {
-            blacklist: {},
+            blocklist: {},
             marks: {},
             findHistory: [],
             cmdHistory: [],
@@ -487,11 +506,11 @@ var ChromeService = (function() {
         return (sender.frameId !== 0 && sender.url === "about:blank") ? sender.tab.url : sender.url;
     }
     function _getDisabled(set, url, regex) {
-        if (set.blacklist['.*']) {
+        if (set.blocklist['.*']) {
             return true;
         }
         if (url) {
-            if (set.blacklist[url.origin]) {
+            if (set.blocklist[url.origin]) {
                 return true;
             }
             if (regex) {
@@ -501,22 +520,22 @@ var ChromeService = (function() {
         }
         return false;
     }
-    self.toggleBlacklist = function(message, sender, sendResponse) {
-        loadSettings('blacklist', function(data) {
+    self.toggleBlocklist = function(message, sender, sendResponse) {
+        loadSettings('blocklist', function(data) {
             var origin = ".*";
             var senderOrigin = sender.origin || new URL(getSenderUrl(sender)).origin;
             if (chrome.extension.getURL("").indexOf(senderOrigin) !== 0) {
                 origin = senderOrigin;
             }
-            if (data.blacklist.hasOwnProperty(origin)) {
-                delete data.blacklist[origin];
+            if (data.blocklist.hasOwnProperty(origin)) {
+                delete data.blocklist[origin];
             } else {
-                data.blacklist[origin] = 1;
+                data.blocklist[origin] = 1;
             }
-            _updateAndPostSettings({blacklist: data.blacklist}, function() {
+            _updateAndPostSettings({blocklist: data.blocklist}, function() {
                 sendResponse({
-                    disabled: _getDisabled(data, sender.tab ? new URL(getSenderUrl(sender)) : null, message.blacklistPattern),
-                    blacklist: data.blacklist,
+                    disabled: _getDisabled(data, sender.tab ? new URL(getSenderUrl(sender)) : null, message.blocklistPattern),
+                    blocklist: data.blocklist,
                     url: origin
                 });
             });
@@ -537,11 +556,11 @@ var ChromeService = (function() {
         });
     };
     self.getDisabled = function(message, sender, sendResponse) {
-        loadSettings(['blacklist', 'noPdfViewer'], function(data) {
+        loadSettings(['blocklist', 'noPdfViewer'], function(data) {
             if (sender.tab) {
                 _response(message, sendResponse, {
                     noPdfViewer: data.noPdfViewer,
-                    disabled: _getDisabled(data, new URL(getSenderUrl(sender)), message.blacklistPattern)
+                    disabled: _getDisabled(data, new URL(getSenderUrl(sender)), message.blocklistPattern)
                 });
             }
         });
@@ -718,17 +737,20 @@ var ChromeService = (function() {
             });
         });
     };
-    self.focusTab = function(message, sender, sendResponse) {
-        if (message.window_id !== undefined && sender.tab.windowId !== message.window_id) {
-            chrome.windows.update(message.window_id, {
-                focused: true
-            }, function() {
-                chrome.tabs.update(message.tab_id, {
-                    active: true
-                });
+    function focusTab(windowId, tabId) {
+        chrome.windows.update(windowId, {
+            focused: true
+        }, function() {
+            chrome.tabs.update(tabId, {
+                active: true
             });
+        });
+    }
+    self.focusTab = function(message, sender, sendResponse) {
+        if (message.windowId !== undefined && sender.tab.windowId !== message.windowId) {
+            focusTab(message.windowId, message.tabId);
         } else {
-            chrome.tabs.update(message.tab_id, {
+            chrome.tabs.update(message.tabId, {
                 active: true
             });
         }
@@ -764,8 +786,8 @@ var ChromeService = (function() {
                     tabHistoryIndex = tabHistory.length - 1;
                 }
             }
-            var tab_id = tabHistory[tabHistoryIndex];
-            chrome.tabs.update(tab_id, {
+            const tabId = tabHistory[tabHistoryIndex];
+            chrome.tabs.update(tabId, {
                 active: true
             });
         }
@@ -892,27 +914,48 @@ var ChromeService = (function() {
             }
         });
     };
-    self.newWindow = function(message, sender, sendResponse) {
-        chrome.tabs.query({}, function(tabs) {
-            var tabInWindow = {};
-            tabs.forEach(function(t) {
-                tabInWindow[t.windowId] = tabInWindow[t.windowId] || [];
-                tabInWindow[t.windowId].push(t.id);
+    let previousWindowChoice = -1;
+    self.getWindows = function (message, sender, sendResponse) {
+        chrome.tabs.query({currentWindow: false}, function(tabs) {
+            const windows = {};
+            tabs.forEach(t => {
+                const tabsInWindow = windows[t.windowId] || [];
+                tabsInWindow.push({title: t.title, url: t.url});
+                windows[t.windowId] = tabsInWindow;
             });
-            if (tabInWindow[sender.tab.windowId] && tabInWindow[sender.tab.windowId].length === 1) {
-                // if there is only one tab in current window,
-                // then move this tab into the window with most tabs.
-                var maximumTab = 0, windowWithMostTab;
-                for (var w in tabInWindow) {
-                    if (tabInWindow[w].length > maximumTab) {
-                        maximumTab = tabInWindow[w].length;
-                        windowWithMostTab = w;
-                    }
-                }
-                chrome.tabs.move(sender.tab.id, {windowId: parseInt(windowWithMostTab), index: -1});
-            } else {
-                chrome.windows.create({tabId: sender.tab.id});
-            }
+            _response(message, sendResponse, {
+                windows: Object.keys(windows).map(w => {
+                    return {
+                        id: w,
+                        tabs: windows[w],
+                        isPreviousChoice: (parseInt(w) === previousWindowChoice)
+                    };
+                })
+            });
+        });
+    };
+    self.moveToWindow = function(message, sender, sendResponse) {
+        if (message.windowId === -1) {
+            chrome.windows.create({tabId: sender.tab.id});
+        } else {
+            chrome.tabs.move(sender.tab.id, {windowId: message.windowId, index: -1}, () => {
+                focusTab(message.windowId, sender.tab.id);
+            });
+        }
+        previousWindowChoice = message.windowId;
+    };
+    self.gatherWindows = function(message, sender, sendResponse) {
+        const windowId = sender.tab.windowId;
+        chrome.tabs.query({currentWindow: false}, function(tabs) {
+            tabs.forEach(function(tab) {
+                chrome.tabs.move(tab.id, {windowId, index: -1});
+            });
+        });
+    };
+    self.gatherTabs = function(message, sender, sendResponse) {
+        const windowId = sender.tab.windowId;
+        message.tabs.forEach(function(tab) {
+            chrome.tabs.move(tab.id, {windowId, index: -1});
         });
     };
     self.getBookmarkFolders = function(message, sender, sendResponse) {
@@ -933,14 +976,23 @@ var ChromeService = (function() {
             });
         });
     };
+    function filterBookmarksByQuery(bookmarks, query, caseSensitive) {
+        return bookmarks.filter(function(b) {
+            var title = b.title, url = b.url;
+            if (!caseSensitive) {
+                title = title.toLowerCase();
+                url = url && url.toLowerCase();
+                query = query.toLowerCase();
+            }
+            return title.indexOf(query) !== -1 || (url && url.indexOf(query) !== -1);
+        });
+    }
     self.getBookmarks = function(message, sender, sendResponse) {
         if (message.parentId) {
             chrome.bookmarks.getSubTree(message.parentId, function(tree) {
                 var bookmarks = tree[0].children;
                 if (message.query && message.query.length) {
-                    bookmarks = bookmarks.filter(function(b) {
-                        return b.title.indexOf(message.query) !== -1 || (b.url && b.url.indexOf(message.query) !== -1);
-                    });
+                    bookmarks = filterBookmarksByQuery(bookmarks, message.query, message.caseSensitive);
                 }
                 _response(message, sendResponse, {
                     bookmarks: bookmarks
@@ -950,7 +1002,7 @@ var ChromeService = (function() {
             if (message.query && message.query.length) {
                 chrome.bookmarks.search(message.query, function(tree) {
                     _response(message, sendResponse, {
-                        bookmarks: tree
+                        bookmarks: filterBookmarksByQuery(tree, message.query, message.caseSensitive)
                     });
                 });
             } else {
@@ -968,6 +1020,11 @@ var ChromeService = (function() {
                 history: tree
             });
         }, message.sortByMostUsed);
+    };
+    self.addHistories = function(message, sender, sendResponse) {
+        message.history.forEach(h => {
+            chrome.history.addUrl({url: h});
+        });
     };
     function normalizeURL(url) {
         if (!/^view-source:|^javascript:/.test(url) && /^(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/\n]+)/im.test(url)) {
@@ -1228,6 +1285,9 @@ var ChromeService = (function() {
                 downloads: items
             });
         });
+    };
+    self.download = function(message, sender, sendResponse) {
+        chrome.downloads.download({ url: message.url })
     };
     self.executeScript = function(message, sender, sendResponse) {
         chrome.tabs.executeScript(sender.tab.id, {
@@ -1493,9 +1553,21 @@ var ChromeService = (function() {
     self.read = function(message, sender, sendResponse) {
         var options = message.options || {};
         options.onEvent = function(ttsEvent) {
-            _response(message, sendResponse, {
-                ttsEvent: ttsEvent
-            });
+            // https://developer.chrome.com/docs/extensions/mv2/messaging/
+            // If multiple pages are listening for onMessage events, only the first to call sendResponse()
+            // for a particular event will succeed in sending the response. All other responses to that event will be ignored.
+            //
+            // Thus for the later events after `start` we will send them in sendTabMessage.
+            if (ttsEvent.type === "start") {
+                _response(message, sendResponse, {
+                    ttsEvent: ttsEvent
+                });
+            } else {
+                sendTabMessage(sender.tab.id, -1, {
+                    subject: 'onTtsEvent',
+                    ttsEvent: ttsEvent
+                });
+            }
         };
         chrome.tts.speak(message.content, options);
     };
@@ -1530,5 +1602,8 @@ var ChromeService = (function() {
         chrome.tabs.reload(sender.tab.id);
     };
 
+==== BASE ====
+    chrome.runtime.setUninstallURL("http://brookhong.github.io/2018/01/30/why-did-you-uninstall-surfingkeys.html");
+==== BASE ====
     return self;
 })();

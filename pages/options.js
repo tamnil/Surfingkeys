@@ -143,7 +143,7 @@ function renderProxyPair(proxy, number) {
     var divProxyPair = document.querySelector(`div.proxyPair[number='${number}']`);
     if (divProxyPair === null) {
         divProxyPair = createElementWithContent('div',
-            document.getElementById("templateProxyPair").textContent.trim(), {"class": "proxyPair", "number": number});
+            document.getElementById("templateProxyPair").innerHTML.trim(), {"class": "proxyPair", "number": number});
         proxyGroup.insertBefore(divProxyPair, addProxyPair);
     }
 
@@ -151,9 +151,10 @@ function renderProxyPair(proxy, number) {
     var proxyInput = divProxyPair.querySelector(".proxy>input");
 
     function __updateProxy(data) {
+        let v = proxyInput.value.replace(/\W+([0-9]+)$/, ":$1");
         _updateProxy({
             number: number,
-            proxy: proxySelect.value + " " + proxyInput.value
+            proxy: proxySelect.value + " " + v
         });
     }
 
@@ -271,7 +272,7 @@ document.getElementById('resetSettings').onclick = function() {
         RUNTIME("resetSettings", null, function(response) {
             renderSettings(response.settings);
             renderKeyMappings(response.settings);
-            Front.showBanner('Settings reset', 300);
+            Front.showBanner('Settings reset', 1000);
         });
     }
 };
@@ -318,12 +319,12 @@ function saveSettings() {
         RUNTIME('loadSettingsFromUrl', {
             url: localPath
         }, function(res) {
-            Front.showBanner(res.status + ' to load settings from ' + localPath, 300);
+            Front.showBanner(res.status + ' to load settings from ' + localPath, 5000);
             renderKeyMappings(res);
             if (res.snippets && res.snippets.length) {
                 localPathSaved = localPath;
                 mappingsEditor.setValue(res.snippets, -1);
-            } else {
+            } else if (settingsCode === "") {
                 mappingsEditor.setValue(sample, -1);
             }
         });
@@ -335,7 +336,7 @@ function saveSettings() {
             }
         });
 
-        Front.showBanner('Settings saved', 300);
+        Front.showBanner('Settings saved', 1000);
     }
 }
 document.getElementById('save_button').onclick = saveSettings;
@@ -441,7 +442,7 @@ var KeyPicker = (function() {
                 var c = [];
                 if (n === "") {
                     c.push(`unmap("${o}");`);
-                } else if (n !== o) {
+                } else if (n && n !== o) {
                     var j = originalKeys.indexOf(n);
                     if (j !== -1 && i < j) {
                         // if the new key that user choosed was in default mappings
@@ -490,7 +491,12 @@ var KeyPicker = (function() {
     var _enter = self.enter;
     self.enter = function(elm) {
         _enter.call(self);
-        _key = elm.getAttribute("new");
+
+        _key = elm.innerText;
+        if (_key === "🚫") {
+            _key = "";
+        }
+
         showKey();
         keyPickerDiv.show();
         _elm = elm;

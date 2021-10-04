@@ -38,7 +38,12 @@ gulp.task('clean', function () {
 
 gulp.task('copy-html-files', function() {
     if (buildTarget === "Firefox") {
-        return gulp.src(['pages/*.html', '!pages/pdf_viewer.html'], {base: "."})
+        return gulp.src([
+            'pages/*.html',
+            '!pages/pdf_viewer.html',
+            '!pages/mermaid.html'
+        ], {base: "."})
+            .pipe(replace(/\s*<script src="ga.js"><\/script>\n\s*<script async src='https:\/\/www.google-analytics.com\/analytics.js'><\/script>/, ''))
             .pipe(gulp.dest(`dist/${buildTarget}-extension`));
     } else {
         return gulp.src(['pages/*.html'], {base: "."})
@@ -64,13 +69,17 @@ gulp.task('copy-non-js-files', function() {
 });
 
 gulp.task('copy-es-files', function() {
-    return gulp.src([
+    let esFiles = [
         'content_scripts/front.js',
         'content_scripts/content_scripts.js',
         'pages/*.js'
-    ], {base: "."})
+    ];
+    if (buildTarget === "Firefox") {
+        esFiles.push('!pages/mermaid.js', '!pages/ga.js');
+    }
+    return gulp.src(esFiles, {base: "."})
         .pipe(gulpif(options.env === 'development', sourcemaps.init()))
-        .pipe(babel({presets: ['es2015']}))
+        .pipe(babel({presets: ['@babel/preset-env']}))
         .pipe(gulpif(!options.nominify, gp_uglify().on('error', gulpUtil.log)))
         .pipe(gulpif(options.env === 'development', sourcemaps.write('.')))
         .pipe(gulp.dest(`dist/${buildTarget}-extension`));
@@ -109,7 +118,7 @@ gulp.task('build_background', function() {
     return gulp.src(background)
         .pipe(gulpif(options.env === 'development', sourcemaps.init()))
         .pipe(gp_concat('background.js'))
-        .pipe(babel({presets: ['es2015']}))
+        .pipe(babel({presets: ['@babel/preset-env']}))
         .pipe(gulpif(!options.nominify, gp_uglify().on('error', gulpUtil.log)))
         .pipe(gulpif(options.env === 'development', sourcemaps.write('.')))
         .pipe(gulp.dest(`dist/${buildTarget}-extension`));
@@ -137,7 +146,7 @@ gulp.task('build_modules', function() {
     return gulp.src(modules)
         .pipe(gulpif(options.env === 'development', sourcemaps.init()))
         .pipe(gp_concat('modules.min.js'))
-        .pipe(babel({presets: ['es2015']}))
+        .pipe(babel({presets: ['@babel/preset-env']}))
         .pipe(gulpif(!options.nominify, gp_uglify().on('error', gulpUtil.log)))
         .pipe(gulpif(options.env === 'development', sourcemaps.write('.')))
         .pipe(gulp.dest(`dist/${buildTarget}-extension/content_scripts`));
@@ -156,6 +165,8 @@ gulp.task('build_manifest', gulp.series('copy-non-js-files', 'copy-html-files', 
             page: "pages/options.html"
         };
         json.content_security_policy = "script-src 'self'; object-src 'self'";
+        json.permissions.push("cookies",
+                              "contextualIdentities");
     } else {
         json.permissions.push("tts");
         json.permissions.push("downloads.shelf");

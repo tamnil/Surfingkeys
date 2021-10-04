@@ -2,6 +2,7 @@ function createUiHost() {
     var uiHost = document.createElement("div");
     uiHost.style.display = "block";
     uiHost.style.opacity = 1;
+    uiHost.style.colorScheme = "auto";
     var frontEndURL = chrome.runtime.getURL('pages/frontend.html');
     var ifr = document.createElement("iframe");
     ifr.setAttribute('allowtransparency', true);
@@ -28,7 +29,7 @@ function createUiHost() {
             // forward message to frontend
             ifr.contentWindow.postMessage(_message, frontEndURL);
             if (_message.commandToFrontend && event.source
-                && ['showStatus', 'showEditor', 'openOmnibar'].indexOf(_message.action) !== -1) {
+                && ['showStatus', 'showEditor', 'openOmnibar', 'openFinder'].indexOf(_message.action) !== -1) {
                 if (!activeContent || activeContent.window !== event.source) {
                     // reset active Content
 

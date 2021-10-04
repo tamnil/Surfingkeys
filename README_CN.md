@@ -16,6 +16,8 @@ Surfingkeys从0.9.15开始支持火狐（需要57以上的版本），但目前�
 * 代理设置
 * Markdown预览
 
+Surfingkeys尽量让用户使用键盘进行网页浏览，但有些限制是Google Chrome本身的，如果想要更彻底的体验请试试[Brook的Chromium浏览器](https://brookhong.github.io/2021/04/18/brook-build-of-chromium-cn.html)。
+
 ## 安装
 
 * [Surfingkeys - Chrome Web Store](https://chrome.google.com/webstore/detail/surfingkeys/gfbliohnnapiefjpjlpjnehglfpaknnc)
@@ -32,6 +34,7 @@ Surfingkeys从0.9.15开始支持火狐（需要57以上的版本），但目前�
 * [搜索选中文本](#搜索选中文本)
 * [类vim标示](#类vim标示)
 * [切换标签页](#切换标签页)
+* [窗口管理](#窗口管理)
 * [命令](#命令)
 * [顺滑滚动](#顺滑滚动)
 * [会话管理](#会话管理)
@@ -270,6 +273,14 @@ search_leader_key(`s`)加上大写的别名(`G`)会打开搜索框让你可以�
 
     settings.tabsMRUOrder = false;
 
+## 窗口管理
+
+`W`会列出所有窗口，你可以选择其中一个，然后按回车键把当面标签页移到选定的窗口。如果当前浏览器只有一个窗口，`W`就直接把当前标签页移到一个新的窗口。
+
+`;gt`打开搜索栏列出所有不在当前窗口里的标签页，你可以输入文本过滤标签页，然后按回车键把所有过滤出来的标签页移到当前窗口。`;gw`则把所有窗口的所有标签页移到当前窗口。
+
+这样，管理窗口的各种标签页，你可以用`W`移动某一个标签页到指定窗口，也可以用`;gt`来收集包含特定关键词的标签页到当前窗口。
+
 ## 命令
 
 用`:`打开搜索栏可用于执行命令，命令执行结果会显示在搜索栏下方。
@@ -339,13 +350,13 @@ search_leader_key(`s`)加上大写的别名(`G`)会打开搜索框让你可以�
 
 当Surfingkeys在某个网站被`Alt-s`关掉时，这个状态会被保存在设置里，如
 
-    "blacklist": {
+    "blocklist": {
         "https://github.com": 1
     },
 
-再按一次`Alt-s`会从settings.blacklist中删除该站点。这类状态并不保存在设置脚本里，你可以按`yj`把当前所有设置复制到系统剪贴板，然后粘贴到文本编辑器里查看。
+再按一次`Alt-s`会从settings.blocklist中删除该站点。这类状态并不保存在设置脚本里，你可以按`yj`把当前所有设置复制到系统剪贴板，然后粘贴到文本编辑器里查看。
 
-另一个禁用Surfingkeys的方法是用`settings.blacklistPattern`，请参考[regex for disabling](https://github.com/brookhong/Surfingkeys/issues/63).
+另一个禁用Surfingkeys的方法是用`settings.blocklistPattern`，请参考[regex for disabling](https://github.com/brookhong/Surfingkeys/issues/63).
 
 ## 代理设置
 
@@ -405,6 +416,8 @@ Surfingkeys集成了ACE里的VIM编辑器，用于：
     settings.aceKeybindings = "emacs";
 
 使用Emacs按键时，用`C-x C-s`来保存你的输入。
+
+Surfingkeys也与[glacambre/firenvim](https://github.com/glacambre/firenvim)集成，用户可以通过neovim来编辑输入。基本上Surfingkeys会先尝试通过`firenvim`调用`neovim`来编辑输入，如果失败了，再调用内嵌的ACE VIM编辑器。如果不喜欢这样，可以把`settings.useNeovim`设为false。
 
 ### 编辑网页上的各类文本输入框
 
@@ -629,7 +642,6 @@ Surfingkeys默认使用[这个markdown分析器](https://github.com/chjj/marked)
 | settings.omnibarSuggestionTimeout | 200 | 设置触发搜索引擎提示的超时，当按键过去设定毫秒后才发起搜索引擎提示的请求，这样避免每次按键就触发请求。|
 | settings.focusFirstCandidate | false | 是否在搜索栏下面自动选择第一个匹配的结果。 |
 | settings.tabsThreshold | 9 | 当打开标签页的数量超过设定值时，使用搜索栏来查找标签页。 |
-| settings.hintsThreshold | 10000 | 当普通的可点击元素(a, button, select, input, textarea)数量超过设定值时，Surfingkeys就不会为其它可点击的元素显示拨号键了。 |
 | settings.clickableSelector | "" | 自定义CSS selector用于f键选择无法检测到的可点击元素，例如"\*.jfk-button, \*.goog-flat-menu-button"。 |
 | settings.clickablePat | /(https?&#124;thunder&#124;magnet):\/\/\S+/ig | 用于检测文字中可点击链接的正则表达式，你可以按`O`打开检测到的链接。|
 | settings.editableSelector | div.CodeMirror-scroll,div.ace_content | 额外CSS selector以自定义可编辑元素。|
@@ -641,7 +653,7 @@ Surfingkeys默认使用[这个markdown分析器](https://github.com/chjj/marked)
 | settings.prevLinkRegex | /((<<&#124;prev(ious)?)+)/i| 匹配上一页链接的正则表达式。 |
 | settings.hintAlign | "center" | 拨号键与它对应的目标如何对齐。["left", "center", "right"] |
 | settings.defaultSearchEngine | "g" | 搜索栏里的默认搜索引擎。 |
-| settings.blacklistPattern | undefined | 如果当前访问的网站匹配设定的正则表达式，则禁用Surfingkeys。 |
+| settings.blocklistPattern | undefined | 如果当前访问的网站匹配设定的正则表达式，则禁用Surfingkeys。 |
 | settings.focusAfterClosed | "right" | 关掉当前标签页后，切换到哪一侧的标签页。["left", "right"] |
 | settings.repeatThreshold | 99 | 操作可重复最多次数。 |
 | settings.tabsMRUOrder | true | 查找打开标签页时，是否按最近访问顺序列出所有标签页。 |
@@ -663,6 +675,7 @@ Surfingkeys默认使用[这个markdown分析器](https://github.com/chjj/marked)
 | settings.caretViewport | null | 按`[top, left, bottom, right]`格式设置，可以限制按`v`进入可视模式时的选择范围。比如`[window.innerHeight / 2 - 10, 0, window.innerHeight / 2 + 10, window.innerWidth]`会使Surfingkeys只会为显示在窗口中间的文字生成拨号盘字符。|
 | settings.mouseSelectToQuery | [] | 所有启用鼠标选择查询功能的网站列表。 |
 | settings.autoSpeakOnInlineQuery | false | 是否在使用inline query时自动发声。 |
+| settings.useNeovim | true | 是否使用neovim(通过[glacambre/firenvim](https://github.com/glacambre/firenvim)集成)编辑输入。 |
 
 ### settings.theme示例，修改状态栏字体
 

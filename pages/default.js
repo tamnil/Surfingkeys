@@ -344,8 +344,16 @@ mapkey('x', '#3Close current tab', function() {
 mapkey('X', '#3Restore closed tab', function() {
     RUNTIME("openLast");
 });
-mapkey('W', '#3New window with current tab',  function() {
-    RUNTIME("newWindow");
+mapkey('W', '#3Move current tab to another window',  function() {
+    Front.openOmnibar(({type: "Windows"}));
+});
+mapkey(';gt', '#3Gather filtered tabs into current window', function() {
+    Front.openOmnibar({type: "Tabs", extra: {
+        action: "gather"
+    }});
+});
+mapkey(';gw', '#3Gather all tabs into current window',  function() {
+    RUNTIME("gatherWindows");
 });
 mapkey('m', '#10Add current URL to vim-like marks', Normal.addVIMark);
 mapkey("'", '#10Jump to vim-like mark', Normal.jumpVIMark);
@@ -414,7 +422,16 @@ mapkey('yT', '#3Duplicate current tab in background', function() {
     RUNTIME("duplicateTab", {active: false});
 });
 mapkey('yy', "#7Copy current page's URL", function() {
-    Clipboard.write(window.location.href);
+    var url = window.location.href;
+    if (url.indexOf(chrome.extension.getURL("/pages/pdf_viewer.html")) === 0) {
+        url = window.location.search.substr(3);
+    }
+    Clipboard.write(url);
+});
+mapkey('yY', "#7Copy all tabs's url", function() {
+    RUNTIME('getTabs', null, function (response) {
+        Clipboard.write([window.location.href].concat(response.tabs.map(tab => tab.url)).join('\n'));
+    });
 });
 mapkey('yh', "#7Copy current page's host", function() {
     var url = new URL(window.location.href);
@@ -612,6 +629,13 @@ mapkey(';U', '#4Edit current URL with vim editor, and reload', function() {
 mapkey(';m', '#1mouse out last element', function() {
     Hints.mouseoutLastElement();
 });
+mapkey(';di', '#1Download image', function() {
+    Hints.create('img', function(element) {
+        RUNTIME('download', {
+            url: element.src
+        });
+    });
+});
 mapkey(';j', '#12Close Downloads Shelf', function() {
     RUNTIME("closeDownloadsShelf", {clearHistory: true});
 });
@@ -636,6 +660,16 @@ vmapkey('t', '#9Translate selected text with google', openGoogleTranslate);
 mapkey(';dh', '#14Delete history older than 30 days', function() {
     RUNTIME('deleteHistoryOlderThan', {
         days: 30
+    });
+});
+mapkey(';yh', '#14Yank histories', function() {
+    RUNTIME('getHistory', {}, function(response) {
+        Clipboard.write(response.history.map(h => h.url).join("\n"));
+    });
+});
+mapkey(';ph', '#14Put histories from clipboard', function() {
+    Clipboard.read(function(response) {
+        RUNTIME('addHistories', {history: response.data.split("\n")});
     });
 });
 mapkey(';db', '#14Remove bookmark for current page', function() {
