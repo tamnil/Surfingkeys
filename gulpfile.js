@@ -43,7 +43,7 @@ gulp.task('copy-html-files', function() {
             '!pages/pdf_viewer.html',
             '!pages/mermaid.html'
         ], {base: "."})
-            .pipe(replace(/\s*<script src="ga.js"><\/script>\n\s*<script async src='https:\/\/www.google-analytics.com\/analytics.js'><\/script>/, ''))
+ //           .pipe(replace(/\s*<script src="ga.js"><\/script>\n\s*<script async src='https:\/\/www.google-analytics.com\/analytics.js'><\/script>/, ''))
             .pipe(gulp.dest(`dist/${buildTarget}-extension`));
     } else {
         return gulp.src(['pages/*.html'], {base: "."})
